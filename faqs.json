@@ -1,0 +1,26 @@
+[
+  {
+    "question": "How do I open a savings account?",
+    "answer": "You can open a savings account by visiting your nearest branch with valid ID and proof of address."
+  },
+  {
+    "question": "What is the minimum balance requirement?",
+    "answer": "The minimum balance requirement is ₹5000 for urban branches and ₹2000 for rural branches."
+  },
+  {
+    "question": "How can I reset my online banking password?",
+    "answer": "Go to the online banking login page and click 'Forgot Password'. Follow the instructions to reset."
+  },
+  {
+    "question": "What is the interest rate on fixed deposits?",
+    "answer": "The interest rate on fixed deposits varies from 5% to 7% depending on the tenure."
+  },
+  {
+    "question": "How do I block my lost debit card?",
+    "answer": "Call our 24/7 helpline immediately or use the mobile app to block your card."
+  },
+  {
+    "question": "How do I update my registered mobile number?",
+    "answer": "Visit any branch with a valid ID proof and fill out the mobile number update form."
+  }
+]
