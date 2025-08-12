@@ -1,4 +1,5 @@
 FAQ Chatbot with Ollama (LLaMA 3.1)
+
 This project is a Streamlit-based chatbot that first tries to answer questions using a predefined FAQ knowledge base. If a suitable FAQ match is found, the answer is displayed instantly. If the user is not satisfied with the FAQ answer, they can click a button to ask the AI (LLaMA 3.1) for a more detailed or conversational response.
 
 The app uses Ollama for local AI inference, ensuring fast, private, and cost-free responses without relying on external APIs.
@@ -28,41 +29,30 @@ chatbot/
 ├── faqs.json              # Predefined FAQ knowledge base
 ├── requirements.txt       # Python dependencies
 └── README.md              # Project documentation
+
 📦 Installation
 1️⃣ Clone the Repository
-bash
-Copy
-Edit
 git clone https://github.com/your-username/chatbot.git
 cd chatbot
+
 2️⃣ Create & Activate Virtual Environment
-bash
-Copy
-Edit
 python3 -m venv venv
 source venv/bin/activate   # Mac/Linux
 venv\Scripts\activate      # Windows
+
 3️⃣ Install Dependencies
-bash
-Copy
-Edit
 pip install -r requirements.txt
+
 4️⃣ Install & Run Ollama
 Follow the instructions to install Ollama from:
 https://ollama.ai/download
 
 Pull the LLaMA 3.1 model:
-
-bash
-Copy
-Edit
 ollama pull llama3.1
+
 ▶️ Usage
 Run the app:
 
-bash
-Copy
-Edit
 streamlit run app.py
 🛠 How It Works
 User asks a question via the input box.
