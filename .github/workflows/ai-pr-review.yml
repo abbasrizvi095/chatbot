@@ -1,4 +1,4 @@
-name: AI PR Review (Diff-aware)
+name: AI PR Review (Local LLaMA)
 
 on:
   pull_request:
@@ -11,8 +11,17 @@ permissions:
 jobs:
   ai-pr-review:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Fetch PR diff
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama pull llama3.1:8b
+
+      - name: Generate AI PR Review
         uses: actions/github-script@v7
         with:
           script: |
@@ -21,66 +30,62 @@ jobs:
             const files = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: pr.number
+              pull_number: pr.number,
+              per_page: 30
             });
 
-            let diffText = "";
+            let diff = "";
             for (const file of files.data) {
               if (file.patch) {
-                diffText += `\n--- ${file.filename} ---\n${file.patch}\n`;
+                diff += `\n--- ${file.filename} ---\n${file.patch}\n`;
               }
             }
 
-            // Safety: limit diff size
-            diffText = diffText.slice(0, 12000);
+            if (!diff.trim()) {
+              diff = "No code changes detected.";
+            }
+
+            // Limit size to avoid token explosion
+            diff = diff.slice(0, 12000);
+
+            const { execSync } = require("child_process");
 
             const prompt = `
-            You are a senior engineer performing a PR review.
+            You are a senior software engineer performing a pull request review.
 
             Review the following code changes and provide:
-            1. Summary of what changed
-            2. Key technical concerns
+            1. A concise summary of what changed
+            2. Specific technical concerns (if any)
             3. Potential bugs or edge cases
-            4. Suggestions for improvement
+            4. Suggested improvements
 
-            Be specific to the code. Avoid generic advice.
+            Avoid generic advice. Reference the actual code.
 
             CODE DIFF:
-            ${diffText}
+            ${diff}
             `;
 
-            const response = await fetch(
-              "https://models.inference.ai.azure.com/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Authorization": `Bearer ${process.env.GITHUB_TOKEN}`,
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                  model: "meta-llama/Meta-Llama-3.1-8B-Instruct",
-                  messages: [
-                    { role: "system", content: "You are a strict code reviewer." },
-                    { role: "user", content: prompt }
-                  ],
-                  temperature: 0.1
-                })
-              }
-            );
+            let reviewOutput = "AI review failed.";
 
-            const data = await response.json();
-            const review = data.choices?.[0]?.message?.content || "AI review unavailable.";
+            try {
+              reviewOutput = execSync(
+                `echo ${JSON.stringify(prompt)} | ollama run llama3.1:8b`,
+                { maxBuffer: 1024 * 1024 }
+              ).toString();
+            } catch (err) {
+              reviewOutput = err.toString();
+            }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr.number,
               body: `
-              ### 🤖 AI-assisted PR Review
+              ### 🤖 AI-assisted PR Review (LLaMA 3.1)
 
-              ${review}
+              ${reviewOutput}
 
               ---
-              _This review is assistive only. Human approval required._
+              _Assistive only. Human approval required._
               `
             });
