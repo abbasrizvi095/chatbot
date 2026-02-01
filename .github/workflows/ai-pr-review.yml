@@ -1,4 +1,4 @@
-name: AI PR Review (Free LLaMA)
+name: AI PR Review (Diff-aware)
 
 on:
   pull_request:
@@ -12,25 +12,41 @@ jobs:
   ai-pr-review:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: AI PR Review using GitHub Models (LLaMA 3.1)
+      - name: Fetch PR diff
         uses: actions/github-script@v7
         with:
           script: |
             const pr = context.payload.pull_request;
 
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+
+            let diffText = "";
+            for (const file of files.data) {
+              if (file.patch) {
+                diffText += `\n--- ${file.filename} ---\n${file.patch}\n`;
+              }
+            }
+
+            // Safety: limit diff size
+            diffText = diffText.slice(0, 12000);
+
             const prompt = `
-            You are a senior software engineer reviewing a pull request.
+            You are a senior engineer performing a PR review.
 
-            Provide:
-            1. A short summary of the change
-            2. Key technical areas to review
-            3. Potential risks or edge cases
-            4. Suggested review checklist
+            Review the following code changes and provide:
+            1. Summary of what changed
+            2. Key technical concerns
+            3. Potential bugs or edge cases
+            4. Suggestions for improvement
 
-            Keep it concise and professional.
+            Be specific to the code. Avoid generic advice.
+
+            CODE DIFF:
+            ${diffText}
             `;
 
             const response = await fetch(
@@ -44,10 +60,10 @@ jobs:
                 body: JSON.stringify({
                   model: "meta-llama/Meta-Llama-3.1-8B-Instruct",
                   messages: [
-                    { role: "system", content: "You are a PR review assistant." },
+                    { role: "system", content: "You are a strict code reviewer." },
                     { role: "user", content: prompt }
                   ],
-                  temperature: 0.2
+                  temperature: 0.1
                 })
               }
             );
@@ -55,18 +71,16 @@ jobs:
             const data = await response.json();
             const review = data.choices?.[0]?.message?.content || "AI review unavailable.";
 
-            const body = `
-            ### 🤖 Automated PR Review (AI-assisted)
-
-            ${review}
-
-            ---
-            _This review is assistive only. Final approval remains with human reviewers._
-            `;
-
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr.number,
-              body
+              body: `
+              ### 🤖 AI-assisted PR Review
+
+              ${review}
+
+              ---
+              _This review is assistive only. Human approval required._
+              `
             });
