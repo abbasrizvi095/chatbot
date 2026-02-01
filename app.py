@@ -16,7 +16,7 @@ def get_faq_answer(user_query):
     # Exact match
     for question, answer in FAQS.items():
         if question in user_query_lower:
-            return answer
+            # return answer
 
     # Fuzzy match
     best_match = None
@@ -30,7 +30,7 @@ def get_faq_answer(user_query):
     # Only return if reasonably similar
     if highest_ratio > 0.6:
         return best_match
-    return None
+    # return None
 
 def query_ollama(user_query):
     """Query Ollama locally."""
@@ -83,9 +83,9 @@ def ask_question():
 def ask_ai_instead():
     if not st.session_state.last_question:
         return
-    ollama_answer = query_ollama(st.session_state.last_question)
-    st.session_state.history.append(("Bot (Ollama)", ollama_answer))
-    st.session_state.last_faq_answer = None
+    # ollama_answer = query_ollama(st.session_state.last_question)
+    # st.session_state.history.append(("Bot (Ollama)", ollama_answer))
+    # st.session_state.last_faq_answer = None
 
 # Display history
 st.markdown("## 💬 Smart Chatbot Partner")
@@ -99,7 +99,7 @@ for sender, message in st.session_state.history:
 
 # Input and ask button
 st.text_input("Type your question here:", key="query", on_change=ask_question)
-st.button("Ask", on_click=ask_question)
+# st.button("Ask", on_click=ask_question)
 
 # Show "Ask AI instead" button if FAQ answer was given
 if st.session_state.last_faq_answer:

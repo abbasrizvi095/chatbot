@@ -1,5 +1,15 @@
 FAQ Chatbot with Ollama (LLaMA 3.1)
 
+## AI-assisted PR Reviews
+
+This repository demonstrates automated PR reviews using:
+- GitHub Actions
+- GitHub Models (LLaMA 3.1 – free tier)
+
+The AI posts PR summaries and review guidance.
+Final review and approval always remains with engineers.
+
+
 This project is a Streamlit-based chatbot that first tries to answer questions using a predefined FAQ knowledge base. If a suitable FAQ match is found, the answer is displayed instantly. If the user is not satisfied with the FAQ answer, they can click a button to ask the AI (LLaMA 3.1) for a more detailed or conversational response.
 
 The app uses Ollama for local AI inference, ensuring fast, private, and cost-free responses without relying on external APIs.
