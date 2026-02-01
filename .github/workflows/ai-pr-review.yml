@@ -5,99 +5,78 @@ on:
     types: [opened, synchronize]
 
 permissions:
-  pull-requests: write
   contents: read
+  pull-requests: write
 
 jobs:
   ai-pr-review:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Install and start Ollama
-      - name: Install and start Ollama
+      - name: Install Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama server
+        run: |
           nohup ollama serve > ollama.log 2>&1 &
-          sleep 5
+          for i in {1..10}; do
+            if ollama list >/dev/null 2>&1; then
+              echo "Ollama is ready"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Pull LLaMA model
+        run: |
           ollama pull llama3.1:8b
 
-      # 3. Generate AI-assisted PR review
-      - name: Generate AI PR Review
+      - name: Prepare PR diff
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} > pr.diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Run AI review
+        run: |
+          cat << 'EOF' > prompt.txt
+          You are a senior software engineer performing a pull request review.
+
+          Provide:
+          1. Summary of changes
+          2. Key technical concerns
+          3. Potential bugs or edge cases
+          4. Suggested improvements
+
+          Be specific to the code. Avoid generic advice.
+
+          CODE DIFF:
+          EOF
+
+          head -c 12000 pr.diff >> prompt.txt
+          OLLAMA_NO_PROGRESS=1 ollama run llama3.1:8b < prompt.txt > review.txt
+
+      - name: Post PR review comment
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require("fs");
-            const { execSync } = require("child_process");
+            const review = fs.readFileSync("review.txt", "utf8");
 
-            const pr = context.payload.pull_request;
-
-            // Fetch PR files and diffs
-            const files = await github.rest.pulls.listFiles({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              per_page: 30
-            });
-
-            let diff = "";
-            for (const file of files.data) {
-              if (file.patch) {
-                diff += `\n--- ${file.filename} ---\n${file.patch}\n`;
-              }
-            }
-
-            if (!diff.trim()) {
-              diff = "No code changes detected.";
-            }
-
-            // Limit diff size to avoid model overload
-            diff = diff.slice(0, 12000);
-
-            // Build review prompt
-            const prompt = `
-            You are a senior software engineer performing a pull request review.
-
-            Review the code changes below and provide:
-            1. A concise summary of what changed
-            2. Key technical concerns
-            3. Potential bugs or edge cases
-            4. Suggestions for improvement
-
-            Avoid generic advice. Refer to the actual code.
-
-            CODE DIFF:
-            ${diff}
-            `;
-
-            // Write prompt to file (prevents shell substitution issues)
-            fs.writeFileSync("prompt.txt", prompt);
-
-            let reviewOutput = "AI review failed.";
-
-            try {
-              reviewOutput = execSync(
-                "OLLAMA_NO_PROGRESS=1 ollama run llama3.1:8b < prompt.txt",
-                { maxBuffer: 1024 * 1024 }
-              ).toString();
-            } catch (err) {
-              reviewOutput = err.toString();
-            }
-
-            // Post review as PR comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: pr.number,
-              body: `
-### 🤖 AI-assisted PR Review (LLaMA 3.1)
-
-${reviewOutput}
-
----
-_Assistive only. Final review and approval remain with human reviewers._
-              `
+              issue_number: context.payload.pull_request.number,
+              body: [
+                "### 🤖 AI-assisted PR Review (LLaMA 3.1)",
+                "",
+                review,
+                "",
+                "_Assistive only. Human approval required._"
+              ].join("\n")
             });
+
