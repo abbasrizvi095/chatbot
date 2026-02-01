@@ -16,9 +16,11 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Ollama
+      - name: Install and start Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > ollama.log 2>&1 &
+          sleep 5
           ollama pull llama3.1:8b
 
       - name: Generate AI PR Review
@@ -41,40 +43,29 @@ jobs:
               }
             }
 
-            if (!diff.trim()) {
-              diff = "No code changes detected.";
-            }
-
-            // Limit size to avoid token explosion
-            diff = diff.slice(0, 12000);
+            diff = diff.slice(0, 12000) || "No code changes detected.";
 
             const { execSync } = require("child_process");
 
             const prompt = `
-            You are a senior software engineer performing a pull request review.
+            You are a senior software engineer reviewing a pull request.
 
-            Review the following code changes and provide:
-            1. A concise summary of what changed
-            2. Specific technical concerns (if any)
-            3. Potential bugs or edge cases
+            Provide:
+            1. Summary of changes
+            2. Technical concerns
+            3. Bugs or edge cases
             4. Suggested improvements
 
-            Avoid generic advice. Reference the actual code.
+            Be specific to the code.
 
             CODE DIFF:
             ${diff}
             `;
 
-            let reviewOutput = "AI review failed.";
-
-            try {
-              reviewOutput = execSync(
-                `echo ${JSON.stringify(prompt)} | ollama run llama3.1:8b`,
-                { maxBuffer: 1024 * 1024 }
-              ).toString();
-            } catch (err) {
-              reviewOutput = err.toString();
-            }
+            const review = execSync(
+              `echo ${JSON.stringify(prompt)} | ollama run llama3.1:8b`,
+              { maxBuffer: 1024 * 1024 }
+            ).toString();
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -83,7 +74,7 @@ jobs:
               body: `
               ### 🤖 AI-assisted PR Review (LLaMA 3.1)
 
-              ${reviewOutput}
+              ${review}
 
               ---
               _Assistive only. Human approval required._
